@@ -7,13 +7,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 public class JavaBootApplication {
@@ -23,42 +24,105 @@ public class JavaBootApplication {
     }
 
     @Bean
-    CommandLineRunner loadData(MetarRepository repo) {
+    CommandLineRunner clr(AirportRepository repo) {
         return args -> {
-//            for (int x = 1; x < 11; x++) {
-//                repo.save(new METAR("VFR", "Weather summary number " + x));
-//            }
-            Stream.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-                    .forEach(x -> repo.save(new METAR("IFR", "Weather summary number " + x)));
+            repo.saveAll(List.of(new Airport("KSTL", "St. Louis Lambert International Airport"),
+                    new Airport("KORD", "Chicago O'Hare International Airport"),
+                    new Airport("KFAT", "Fresno Yosemite Airport"),
+                    new Airport("KGAG", "Gage Airport"),
+                    new Airport("KLOL", "Derby Field"),
+                    new Airport("KSUX", "Sioux Gateway/Brig General Bud Day Field"),
+                    new Airport("KLOL", "Derby Field"),
+                    new Airport("KBUM", "Butler Memorial Airport")));
         };
     }
 }
 
 @RestController
 class MetarController {
-    private final MetarRepository repo;
+    private final WxService service;
 
-    MetarController(MetarRepository repo) {
-        this.repo = repo;
+    MetarController(WxService service) {
+        this.service = service;
     }
 
     @GetMapping
-    Iterable<METAR> getAllMetars() {
-        return repo.findAll();
+    Iterable<Airport> getAllMetars() {
+        return service.getAllAirports();
     }
 
     @GetMapping("/{id}")
-    Optional<METAR> getMetarById(@PathVariable String id) {
+    Optional<Airport> getAirportById(@PathVariable String id) {
+        return service.getAirportById(id);
+    }
+}
+
+@Service
+class WxService {
+    private final AirportRepository repo;
+
+    WxService(AirportRepository repo) {
+        this.repo = repo;
+    }
+
+    Iterable<Airport> getAllAirports() {
+        return repo.findAll();
+    }
+
+    Optional<Airport> getAirportById(String id) {
         return repo.findById(id);
     }
 }
 
-interface MetarRepository extends CrudRepository<METAR, String> {}
+interface AirportRepository extends CrudRepository<Airport, String> {}
+
+//interface MetarRepository extends CrudRepository<METAR, String> {}
 
 @Document
-class METAR {
+class Airport {
     @Id
-    String id;
+    private final String id;
+    private final String name;
+
+    public Airport(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Airport airport = (Airport) o;
+        return Objects.equals(id, airport.id) && Objects.equals(name, airport.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);
+    }
+
+    @Override
+    public String toString() {
+        return "Airport{" +
+                "id='" + id + '\'' +
+                ", name='" + name + '\'' +
+                '}';
+    }
+}
+
+//@Document
+class METAR {
+//    @Id
+//    String id;
     String flight_rules;
     String raw;
 
@@ -71,13 +135,13 @@ class METAR {
         this.raw = raw;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
+//    public String getId() {
+//        return id;
+//    }
+//
+//    public void setId(String id) {
+//        this.id = id;
+//    }
 
     public String getFlightRules() {
         return flight_rules;
