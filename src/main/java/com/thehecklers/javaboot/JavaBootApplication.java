@@ -1,6 +1,10 @@
 package com.thehecklers.javaboot;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -43,7 +47,6 @@ public class JavaBootApplication {
                             new Airport("KGAG", "Gage Airport"),
                             new Airport("KLOL", "Derby Field"),
                             new Airport("KSUX", "Sioux Gateway/Brig General Bud Day Field"),
-                            new Airport("KLOL", "Derby Field"),
                             new Airport("KBUM", "Butler Memorial Airport")))
                     .flatMap(repo::save)
                     .subscribe();
@@ -127,94 +130,18 @@ interface AirportRepository extends ReactiveCrudRepository<Airport, String> {
 }
 
 @Document
+@Value
 class Airport {
     @Id
-    private final String id;
-    private final String name;
-
-    public Airport(String id, String name) {
-        this.id = id;
-        this.name = name;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Airport airport = (Airport) o;
-        return Objects.equals(id, airport.id) && Objects.equals(name, airport.name);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name);
-    }
-
-    @Override
-    public String toString() {
-        return "Airport{" +
-                "id='" + id + '\'' +
-                ", name='" + name + '\'' +
-                '}';
-    }
+    String id;
+    String name;
 }
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 class METAR {
-    String flight_rules;
-    String raw;
-
-    public METAR() {
-    }
-
-    public METAR(String flight_rules,
-                 String raw) {
-        this.flight_rules = flight_rules;
-        this.raw = raw;
-    }
-
     @JsonProperty("flight_rules")
-    public String getFlightRules() {
-        return flight_rules;
-    }
-
-    public void setFlightRules(String flight_rules) {
-        this.flight_rules = flight_rules;
-    }
-
-    public String getRaw() {
-        return raw;
-    }
-
-    public void setRaw(String raw) {
-        this.raw = raw;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        METAR metar = (METAR) o;
-        return Objects.equals(flight_rules, metar.flight_rules) && Objects.equals(raw, metar.raw);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(flight_rules, raw);
-    }
-
-    @Override
-    public String toString() {
-        return "METAR{" +
-                "flight_rules='" + flight_rules + '\'' +
-                ", raw='" + raw + '\'' +
-                '}';
-    }
+    private String flight_rules;
+    private String raw;
 }
