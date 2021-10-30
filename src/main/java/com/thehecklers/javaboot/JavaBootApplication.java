@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.springframework.http.MediaType.*;
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.*;
 import static org.springframework.web.reactive.function.server.ServerResponse.*;
@@ -110,12 +111,15 @@ class WxService {
 
     Mono<ServerResponse> getMetarsForAirportById(ServerRequest req) {
         return ok()
-                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .contentType(TEXT_EVENT_STREAM)
                 .body(Flux.interval(Duration.ofSeconds(1))
                         .flatMap(l -> client.get()
                                 .uri("?loc=" + req.pathVariable("id"))
                                 .retrieve()
-                                .bodyToMono(METAR.class)), METAR.class);
+                                .bodyToMono(METAR.class)
+                                .defaultIfEmpty(
+                                        new METAR("???", "METAR unavailable for this airport code"))), METAR.class)
+                ;
     }
 }
 
