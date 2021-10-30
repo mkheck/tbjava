@@ -130,18 +130,12 @@ interface AirportRepository extends ReactiveCrudRepository<Airport, String> {
 }
 
 @Document
-@Value
-class Airport {
-    @Id
-    String id;
-    String name;
-}
+record Airport(@Id String id, String name) {}
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 class METAR {
-    @JsonProperty("flight_rules")
     private String flight_rules;
     private String raw;
 }
