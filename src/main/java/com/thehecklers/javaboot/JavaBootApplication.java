@@ -8,18 +8,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.server.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RouterFunctions.*;
+import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
 @SpringBootApplication
 public class JavaBootApplication {
@@ -31,14 +35,17 @@ public class JavaBootApplication {
     @Bean
     CommandLineRunner clr(AirportRepository repo) {
         return args -> {
-            repo.saveAll(List.of(new Airport("KSTL", "St. Louis Lambert International Airport"),
-                    new Airport("KORD", "Chicago O'Hare International Airport"),
-                    new Airport("KFAT", "Fresno Yosemite Airport"),
-                    new Airport("KGAG", "Gage Airport"),
-                    new Airport("KLOL", "Derby Field"),
-                    new Airport("KSUX", "Sioux Gateway/Brig General Bud Day Field"),
-                    new Airport("KLOL", "Derby Field"),
-                    new Airport("KBUM", "Butler Memorial Airport")));
+            repo.deleteAll()
+                    .thenMany(Flux.just(new Airport("KSTL", "St. Louis Lambert International Airport"),
+                            new Airport("KORD", "Chicago O'Hare International Airport"),
+                            new Airport("KFAT", "Fresno Yosemite Airport"),
+                            new Airport("KGAG", "Gage Airport"),
+                            new Airport("KLOL", "Derby Field"),
+                            new Airport("KSUX", "Sioux Gateway/Brig General Bud Day Field"),
+                            new Airport("KLOL", "Derby Field"),
+                            new Airport("KBUM", "Butler Memorial Airport")))
+                    .flatMap(repo::save)
+                    .subscribe();
         };
     }
 
@@ -46,30 +53,37 @@ public class JavaBootApplication {
     WebClient client() {
         return WebClient.create("http://localhost:9876/metar");
     }
+
+    @Bean
+    RouterFunction<ServerResponse> routerFunction(WxService svc) {
+        return route(GET("/"), svc::getAllAirports)
+                .andRoute(GET("/{id}"), svc::getAirportById)
+                .andRoute(GET("/metar/{id}"), svc::getMetarsForAirportById);
+    }
 }
 
-@RestController
+//@RestController
 class MetarController {
-    private final WxService service;
-
-    MetarController(WxService service) {
-        this.service = service;
-    }
-
-    @GetMapping
-    Iterable<Airport> getAllAirports() {
-        return service.getAllAirports();
-    }
-
-    @GetMapping("/{id}")
-    Optional<Airport> getAirportById(@PathVariable String id) {
-        return service.getAirportById(id);
-    }
-
-    @GetMapping(value = "/metar/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    Flux<METAR> getMetarsForAirport(@PathVariable String id) {
-        return service.getMetarsForAirportById(id);
-    }
+//    private final WxService service;
+//
+//    MetarController(WxService service) {
+//        this.service = service;
+//    }
+//
+//    @GetMapping
+//    Iterable<Airport> getAllAirports() {
+//        return service.getAllAirports();
+//    }
+//
+//    @GetMapping("/{id}")
+//    Optional<Airport> getAirportById(@PathVariable String id) {
+//        return service.getAirportById(id);
+//    }
+//
+//    @GetMapping(value = "/metar/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+//    Flux<METAR> getMetarsForAirport(@PathVariable String id) {
+//        return service.getMetarsForAirportById(id);
+//    }
 }
 
 @Service
@@ -82,24 +96,30 @@ class WxService {
         this.client = client;
     }
 
-    Iterable<Airport> getAllAirports() {
-        return repo.findAll();
+    // req -> ok().body(svc.getAirportById(req.pathVariable("id")), Airport.class)
+    Mono<ServerResponse> getAllAirports(ServerRequest req) {
+        return ok()
+                .body(repo.findAll(), Airport.class);
     }
 
-    Optional<Airport> getAirportById(String id) {
-        return repo.findById(id);
+    //req -> ok().contentType(MediaType.TEXT_EVENT_STREAM).body(svc.getMetarsForAirportById(req.pathVariable("id")), METAR.class)
+    Mono<ServerResponse> getAirportById(ServerRequest req) {
+        return ok()
+                .body(repo.findById(req.pathVariable("id")), Airport.class);
     }
 
-    Flux<METAR> getMetarsForAirportById(String id) {
-        return Flux.interval(Duration.ofSeconds(1))
-                .flatMap(l -> client.get()
-                        .uri("?loc=" + id)
-                        .retrieve()
-                        .bodyToMono(METAR.class));
+    Mono<ServerResponse> getMetarsForAirportById(ServerRequest req) {
+        return ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(Flux.interval(Duration.ofSeconds(1))
+                        .flatMap(l -> client.get()
+                                .uri("?loc=" + req.pathVariable("id"))
+                                .retrieve()
+                                .bodyToMono(METAR.class)), METAR.class);
     }
 }
 
-interface AirportRepository extends CrudRepository<Airport, String> {
+interface AirportRepository extends ReactiveCrudRepository<Airport, String> {
 }
 
 @Document
